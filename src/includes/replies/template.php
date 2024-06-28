@@ -799,7 +799,7 @@ function bbp_reply_revision_log( $reply_id = 0 ) {
  * @since 2.0.0 bbPress (r2782)
  *
  * @param int $reply_id Optional. Reply id
- * @return string reply revisions
+ * @return WP_Post[]|int[] reply revisions
  */
 function bbp_get_reply_revisions( $reply_id = 0 ) {
 	$reply_id  = bbp_get_reply_id( $reply_id );

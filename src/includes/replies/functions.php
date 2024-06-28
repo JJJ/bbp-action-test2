@@ -640,12 +640,27 @@ function bbp_edit_reply_handler( $action = '' ) {
 
 	/** Reply Status **********************************************************/
 
+	// Get available reply statuses
+	$reply_statuses = bbp_get_reply_statuses( $reply_id );
+
 	// Use existing post_status
 	$reply_status = $reply->post_status;
 
 	// Maybe force into pending
 	if ( bbp_is_reply_public( $reply_id ) && ! bbp_check_for_moderation( $anonymous_data, $reply_author, $reply_title, $reply_content ) ) {
 		$reply_status = bbp_get_pending_status_id();
+
+	// Check for possible posted reply status
+	} elseif ( ! empty( $_POST['bbp_reply_status'] ) && in_array( $_POST['bbp_reply_status'], array_keys( $reply_statuses ), true ) ) {
+
+		// Allow capable users to explicitly override the status
+		if ( current_user_can( 'moderate', $reply_id ) ) {
+			$reply_status = sanitize_key( $_POST['bbp_reply_status'] );
+
+		// Not capable
+		} else {
+			bbp_add_error( 'bbp_edit_reply_status', __( '<strong>Error</strong>: You do not have permission to do that.', 'bbpress' ) );
+		}
 	}
 
 	/** Reply To **************************************************************/
@@ -2059,6 +2074,7 @@ function bbp_reply_content_autoembed() {
  * @since 2.1.0 bbPress (r4058)
  *
  * @param string $where
+ * @param WP_Query $query
  * @return string
  */
 function _bbp_has_replies_where( $where = '', $query = false ) {

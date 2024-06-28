@@ -963,7 +963,7 @@ function bbp_topic_revision_log( $topic_id = 0 ) {
  * @since 2.0.0 bbPress (r2782)
  *
  * @param int $topic_id Optional. Topic id
- * @return string Topic revisions
+ * @return WP_Post[]|int[] Topic revisions
  */
 function bbp_get_topic_revisions( $topic_id = 0 ) {
 	$topic_id  = bbp_get_topic_id( $topic_id );

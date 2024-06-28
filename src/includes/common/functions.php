@@ -483,7 +483,7 @@ function bbp_get_statistics( $args = array() ) {
 		$reply_count = $all_replies->{$publish};
 
 		// Declare empty arrays
-		$topics = $topic_titles = array_fill_keys( bbp_get_non_public_reply_statuses(), '' );
+		$replies = $reply_titles = array_fill_keys( bbp_get_non_public_reply_statuses(), '' );
 
 		// Pending
 		if ( ! empty( $r['count_pending_replies'] ) && ! empty( $caps['edit_others_replies'] ) ) {
@@ -516,7 +516,7 @@ function bbp_get_statistics( $args = array() ) {
 		}
 
 		// Total hidden (pending, private, hidden, spam, trash)
-		$reply_count_hidden = array_sum( $replies );
+		$reply_count_hidden = array_sum( array_filter( $replies ) );
 
 		// Compile the hidden replies title
 		$hidden_reply_title = implode( ' | ', $reply_titles );
@@ -2519,8 +2519,10 @@ function bbp_request_feed_trap( $query_vars = array() ) {
 				// Get the view query
 				$the_query = bbp_get_view_query_args( $view );
 
-				// Output the feed
-				bbp_display_topics_feed_rss2( $the_query );
+				// Output the feed if view exists
+				if ( ! empty( $the_query ) ) {
+					bbp_display_topics_feed_rss2( $the_query );
+				}
 			}
 		}
 
