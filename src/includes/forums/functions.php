@@ -2309,6 +2309,11 @@ function bbp_pre_get_posts_normalize_forum_visibility( $posts_query = null ) {
 	// Get query post types as an array.
 	$post_types = array_filter( (array) $posts_query->get( 'post_type' ) );
 
+	// Bail if no post types to normalize
+	if ( empty( $post_types ) ) {
+		return;
+	}
+
 	// Forums
 	if ( in_array( bbp_get_forum_post_type(), $post_types, true ) ) {
 
@@ -2334,7 +2339,7 @@ function bbp_pre_get_posts_normalize_forum_visibility( $posts_query = null ) {
 		}
 	}
 
-	// Some other post type besides Forums, Topics, or Replies
+	// Any bbPress post type
 	if ( ! array_diff( $post_types, bbp_get_post_types() ) ) {
 
 		// Get forums to exclude
