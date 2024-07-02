@@ -2262,7 +2262,7 @@ function bbp_breadcrumb( $args = array() ) {
 		}
 
 		// Define variables
-		$front_id         = $root_id                                 = 0;
+		$front_id         = $root_id          = $remove_root_id      = 0;
 		$ancestors        = $crumbs           = $tag_data            = array();
 		$pre_root_text    = $pre_front_text   = $pre_current_text    = '';
 		$pre_include_root = $pre_include_home = $pre_include_current = true;
@@ -2417,7 +2417,8 @@ function bbp_breadcrumb( $args = array() ) {
 			// Page exists at root slug path, so use its permalink
 			$page = bbp_get_page_by_path( bbp_get_root_slug() );
 			if ( ! empty( $page ) ) {
-				$root_url = get_permalink( $page->ID );
+				$root_url       = get_permalink( $page->ID );
+				$remove_root_id = $page->ID;
 
 			// Use the root slug
 			} else {
@@ -2439,6 +2440,11 @@ function bbp_breadcrumb( $args = array() ) {
 
 				// Skip parent if empty or error
 				if ( empty( $parent ) || is_wp_error( $parent ) ) {
+					continue;
+				}
+
+				// Skip to prevent duplicate root on subpages
+				if ( ! empty( $remove_root_id ) && ( $parent->ID === $remove_root_id ) ) {
 					continue;
 				}
 
