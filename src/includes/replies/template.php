@@ -523,7 +523,8 @@ function bbp_reply_title( $reply_id = 0 ) {
 	 */
 	function bbp_get_reply_title( $reply_id = 0 ) {
 		$reply_id = bbp_get_reply_id( $reply_id );
-		$title    = get_the_title( $reply_id );
+		$title    = get_post_field( 'post_title', $reply_id );
+		$title    = apply_filters( 'the_title', $title, $reply_id );
 
 		// Filter & return
 		return apply_filters( 'bbp_get_reply_title', $title, $reply_id );
@@ -1400,9 +1401,10 @@ function bbp_reply_topic_title( $reply_id = 0 ) {
 	function bbp_get_reply_topic_title( $reply_id = 0 ) {
 		$reply_id = bbp_get_reply_id( $reply_id );
 		$topic_id = bbp_get_reply_topic_id( $reply_id );
+		$title    = bbp_get_topic_title( $topic_id );
 
 		// Filter & return
-		return apply_filters( 'bbp_get_reply_topic_title', bbp_get_topic_title( $topic_id ), $reply_id );
+		return apply_filters( 'bbp_get_reply_topic_title', $title, $reply_id );
 	}
 
 /**

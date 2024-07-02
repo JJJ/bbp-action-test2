@@ -2844,3 +2844,38 @@ function bbp_title( $title = '', $sep = '&raquo;', $seplocation = '' ) {
 	// Filter & return
 	return apply_filters( 'bbp_title', $new_title, $sep, $seplocation );
 }
+
+/**
+ * Removes Protected/Private post title hints.
+ *
+ * This function is hooked to 2 WordPress filters that are responsible for
+ * prepending hints to the beginning of Protected & Private post titles.
+ *
+ * These hints are a bit unsightly when used in functions like
+ * bbp_get_breadcrumb(), so we strip them back out for bbPress post types.
+ *
+ * @since 2.7.0
+ *
+ * @param string      $prepend Text displayed before a post title.
+ * @param int|WP_Post $post    Current post object.
+ *
+ * @return string
+ */
+function bbp_no_title_status_hints( $prepend = '', $post = 0 ) {
+
+	// Bail if empty
+	if ( empty( $prepend ) || empty( $post ) ) {
+		return $prepend;
+	}
+
+	// Get post type
+	$post_type = get_post_type( $post );
+
+	// Maybe override return value
+	$retval = in_array( $post_type, bbp_get_post_types(), true )
+		? '%s'
+		: $prepend;
+
+	// Filter & return
+	return (string) apply_filters( 'bbp_no_special_title_formatting', $retval, $prepend, $post );
+}

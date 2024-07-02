@@ -600,7 +600,8 @@ function bbp_topic_title( $topic_id = 0 ) {
 	 */
 	function bbp_get_topic_title( $topic_id = 0 ) {
 		$topic_id = bbp_get_topic_id( $topic_id );
-		$title    = get_the_title( $topic_id );
+		$title    = get_post_field( 'post_title', $topic_id );
+		$title    = apply_filters( 'the_title', $title, $topic_id );
 
 		// Filter & return
 		return apply_filters( 'bbp_get_topic_title', $title, $topic_id );

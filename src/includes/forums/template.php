@@ -372,7 +372,8 @@ function bbp_forum_title( $forum_id = 0 ) {
 	 */
 	function bbp_get_forum_title( $forum_id = 0 ) {
 		$forum_id = bbp_get_forum_id( $forum_id );
-		$title    = get_the_title( $forum_id );
+		$title    = get_post_field( 'post_title', $forum_id );
+		$title    = apply_filters( 'the_title', $title, $forum_id );
 
 		// Filter & return
 		return apply_filters( 'bbp_get_forum_title', $title, $forum_id );
