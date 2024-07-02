@@ -219,6 +219,9 @@ class BBP_Admin {
 		// Allow keymasters to save forums settings
 		add_filter( 'option_page_capability_bbpress',  array( $this, 'option_page_capability_bbpress' ) );
 
+		// Maybe add post-state support for Forum & Topic Archive pages
+		add_filter( 'display_post_states', array( $this, 'display_post_states' ), 10, 2 );
+
 		/** Network Admin *****************************************************/
 
 		// Add menu item to settings menu
@@ -907,6 +910,78 @@ class BBP_Admin {
 	public function option_page_capability_bbpress( $capability = 'manage_options' ) {
 		$capability = $this->minimum_capability;
 		return $capability;
+	}
+
+	/**
+	 * Add post-state support for shortcode usages.
+	 *
+	 * Also does a quick slug comparison, to avoid doing many get_page_by_path()
+	 * calls inside of a list-table loop. This is less precise but should work
+	 * well-enough for most installations.
+	 *
+	 * @since 2.7.0
+	 *
+	 * @param array       $post_states
+	 * @param int|WP_Post $post
+	 *
+	 * @return array
+	 */
+	public function display_post_states( $post_states = array(), $post = 0 ) {
+
+		// Default return value
+		$retval = $post_states;
+
+		/** Shortcodes ********************************************************/
+
+		// Forum Archive
+		if ( has_shortcode( $post->post_content, 'bbp-forum-index' ) ) {
+			$retval[] = esc_html_x( 'Forum Archive', 'page label', 'bbpress' );
+
+		// Topic Archive
+		} elseif ( has_shortcode( $post->post_content, 'bbp-topic-index' ) ) {
+			$retval[] = esc_html_x( 'Topic Archive', 'page label', 'bbpress' );
+
+		// Topic Tags
+		} elseif ( has_shortcode( $post->post_content, 'bbp-topic-tags' ) ) {
+			$retval[] = esc_html_x( 'Topic Tags', 'page label', 'bbpress' );
+
+		// Topic View
+		} elseif ( has_shortcode( $post->post_content, 'bbp-single-view' ) ) {
+			$retval[] = esc_html_x( 'Topic View', 'page label', 'bbpress' );
+
+		// Search
+		} elseif ( has_shortcode( $post->post_content, 'bbp-search' ) ) {
+			$retval[] = esc_html_x( 'Forum Search', 'page label', 'bbpress' );
+
+		// Login
+		} elseif ( has_shortcode( $post->post_content, 'bbp-login' ) ) {
+			$retval[] = esc_html_x( 'Forum Login', 'page label', 'bbpress' );
+
+		// Register
+		} elseif ( has_shortcode( $post->post_content, 'bbp-register' ) ) {
+			$retval[] = esc_html_x( 'Forum Registration', 'page label', 'bbpress' );
+
+		// Lost Password
+		} elseif ( has_shortcode( $post->post_content, 'bbp-lost-pass' ) ) {
+			$retval[] = esc_html_x( 'Forum Lost Password', 'page label', 'bbpress' );
+
+		// Statistics
+		} elseif ( has_shortcode( $post->post_content, 'bbp-stats' ) ) {
+			$retval[] = esc_html_x( 'Forum Statistics', 'page label', 'bbpress' );
+
+		/** Paths *************************************************************/
+
+		// Forum Archive
+		} elseif ( $post->post_name === bbp_get_root_slug() ) {
+			$retval[] = esc_html_x( 'Forum Archive', 'page label', 'bbpress' );
+
+		// Topic Archive
+		} elseif ( $post->post_name === bbp_get_topic_archive_slug() ) {
+			$retval[] = esc_html_x( 'Topic Archive', 'page label', 'bbpress' );
+		}
+
+		// Return possibly modified post states
+		return $retval;
 	}
 
 	/** Ajax ******************************************************************/
