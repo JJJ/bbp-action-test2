@@ -808,10 +808,13 @@ function bbp_topic_pagination( $args = array() ) {
 		// Slug must be checked for topics that have never been approved/published
 		$has_slug = bbp_get_topic( $r['topic_id'] )->post_name;
 
+		// Get the topic permalink
+		$topic_permalink = bbp_get_topic_permalink( $r['topic_id'] );
+
 		// If pretty permalinks are enabled, make our pagination pretty
 		$base = ! empty( $has_slug ) && bbp_use_pretty_urls() && bbp_is_topic_public( $r['topic_id'] )
-			? trailingslashit( get_permalink( $r['topic_id'] ) ) . user_trailingslashit( bbp_get_paged_slug() . '/%#%/' )
-			: add_query_arg( 'paged', '%#%', get_permalink( $r['topic_id'] ) );
+			? trailingslashit( $topic_permalink ) . user_trailingslashit( bbp_get_paged_slug() . '/%#%/' )
+			: add_query_arg( 'paged', '%#%', $topic_permalink );
 
 		// Get total and add 1 if topic is included in the reply loop
 		$total = bbp_get_topic_reply_count( $r['topic_id'], true );

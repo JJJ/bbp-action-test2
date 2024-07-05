@@ -1264,7 +1264,7 @@ function bbp_notify_forum_subscribers( $topic_id = 0, $forum_id = 0, $anonymous_
 
 	/** Topic *****************************************************************/
 
-	// Bail if topic is not public (includes closed)
+	// Bail if topic is not public (both open/closed are public)
 	if ( ! bbp_is_topic_public( $topic_id ) ) {
 		return false;
 	}
@@ -1310,7 +1310,7 @@ function bbp_notify_forum_subscribers( $topic_id = 0, $forum_id = 0, $anonymous_
 	$topic_title       = wp_specialchars_decode( strip_tags( bbp_get_topic_title( $topic_id ) ), ENT_QUOTES );
 	$topic_author_name = wp_specialchars_decode( strip_tags( $topic_author_name ), ENT_QUOTES );
 	$topic_content     = wp_specialchars_decode( strip_tags( bbp_get_topic_content( $topic_id ) ), ENT_QUOTES );
-	$topic_url         = get_permalink( $topic_id );
+	$topic_url         = bbp_get_topic_permalink( $topic_id );
 
 	// For plugins to filter messages per reply/topic/user
 	$message = sprintf( esc_html__( '%1$s wrote:
