@@ -44,16 +44,16 @@ final class bbPress {
 
 	/**
 	 * bbPress uses many variables, several of which can be filtered to
-	 * customize the way it operates. Most of these variables are stored in a
-	 * private array that gets updated with the help of PHP magic methods.
+	 * customize the way it operates. Most of those variables are stored in this
+	 * private array via PHP magic methods.
 	 *
 	 * This is a precautionary measure, to avoid potential errors produced by
-	 * unanticipated direct manipulation of run-time data.
+	 * unanticipated direct manipulation of critical run-time data.
 	 *
 	 * @see bbPress::setup_globals()
 	 * @var array
 	 */
-	private $data;
+	private $data = array();
 
 	/** Not Magic *************************************************************/
 
