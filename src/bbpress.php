@@ -50,8 +50,7 @@ final class bbPress {
 	 * This is a precautionary measure, to avoid potential errors produced by
 	 * unanticipated direct manipulation of critical run-time data.
 	 *
-	 * @see bbPress::setup_globals()
-	 * @var array
+	 * @var array All run-time data
 	 */
 	private $data = array();
 
