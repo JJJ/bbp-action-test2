@@ -26,16 +26,6 @@ jobs:
           apt-get update
           apt-get install -y git git-svn subversion jq curl
 
-          # Ensure git-svn is in the system path
-          GIT_SVN_PATH=$(find / -name git-svn -type f 2>/dev/null | head -n 1)
-          if [ -n "$GIT_SVN_PATH" ]; then
-            sudo ln -sf "$GIT_SVN_PATH" /usr/local/bin/git-svn
-            echo "git-svn found and linked: $GIT_SVN_PATH"
-          else
-            echo "ERROR: git-svn was installed but not found in system path!"
-            exit 1
-          fi
-
       - name: Check if GitHub Repository Has Been Synced from SVN Before
         id: check_repo
         run: |
