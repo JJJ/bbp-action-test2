@@ -2,13 +2,12 @@ name: Sync bbPress SVN to GitHub
 
 on:
   schedule:
-    - cron: '*/30 * * * *' # Runs every 30 minutes
-  workflow_dispatch: # Allows manual trigger
+    - cron: '*/30 * * * *' # Every 30 minutes
+  workflow_dispatch: # Allow manual trigger
 
 env:
-  GITHUB_USERNAME: "jjj"
   SVN_REPO_URL: "https://bbpress.svn.wordpress.org"
-  GITHUB_REPO_URL: "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/jjj/bbp-action-test2.git"
+  GITHUB_REPO_URL: "https://github.com/${{ github.repository }}.git"
 
 jobs:
   sync:
@@ -164,13 +163,6 @@ jobs:
           git push --all origin --force
           git push --tags origin --force
 
-      - name: Init - Push to GitHub
-        if: env.SVN_SYNCED == 'false'
-        run: |
-          git remote add origin $GITHUB_REPO_URL || true
-          git push --all origin --force
-          git push --tags origin --force
-
       - name: Init - Cache Authors from Initial Sync
         if: env.SVN_SYNCED == 'false'
         run: |
@@ -229,7 +221,7 @@ jobs:
       - name: Sync - All Branches and Tags to GitHub
         if: env.SVN_SYNCED == 'true'
         run: |
-          git remote add origin $GITHUB_REPO_URL || true
+          git remote set-url origin $GITHUB_REPO_URL
           if [ -n "$(git status --porcelain)" ]; then
             git push --all origin --force
             git push --tags origin --force
