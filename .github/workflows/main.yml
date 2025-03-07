@@ -2,10 +2,11 @@ name: Sync bbPress SVN to GitHub
 
 on:
   schedule:
-    - cron: '*/30 * * * *' # Every 30 minutes
-  workflow_dispatch: # Allow manual trigger
+    - cron: '*/30 * * * *' # Runs every 30 minutes
+  workflow_dispatch: # Allows manual trigger
 
 env:
+  GITHUB_USERNAME: "jjj"
   SVN_REPO_URL: "https://bbpress.svn.wordpress.org"
   GITHUB_REPO_URL: "https://github.com/${{ github.repository }}.git"
 
@@ -19,7 +20,11 @@ jobs:
       - name: Boot - Checkout GitHub Repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0  # Ensures a full clone (not a shallow one)
+          persist-credentials: true
+          clean: false  # Prevents deleting the `.git` directory
+          submodules: false
+          lfs: false
 
       - name: Boot - Install Dependencies
         run: |
