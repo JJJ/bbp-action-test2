@@ -58,7 +58,7 @@ jobs:
           fi
           echo "LAST_SYNCED_REV=$LAST_SYNCED_REV" >> $GITHUB_ENV
 
-      - name: Boot - Check for New SVN Commits
+      - name: Boot - Might Exit Here If No New SVN Commits
         if: env.SVN_SYNCED == 'true'
         run: |
           if [[ "$LATEST_SVN_REV" -eq "$LAST_SYNCED_REV" ]]; then
@@ -66,14 +66,14 @@ jobs:
             exit 0
           fi
 
-      - name: Boot - Ensure authors.json Exists
+      - name: Files - Ensure authors.json Exists
         run: |
           if [ ! -f authors.json ]; then
             echo "{}" > authors.json
             echo "Created empty authors.json file."
           fi
 
-      - name: Boot - Create Username Map Script
+      - name: Files - Create Username Map Script
         run: |
           cat << 'EOF' > fetch-authors.sh
           #!/bin/bash
@@ -83,7 +83,7 @@ jobs:
           EOF
           chmod +x fetch-authors.sh
 
-      - name: Boot - Create Author Caching Script
+      - name: Files - Create Author Caching Script
         run: |
           cat << 'EOF' > cache-authors.sh
           #!/bin/bash
@@ -132,7 +132,7 @@ jobs:
 
           chmod +x cache-authors.sh
 
-      - name: Init - Full Clone (if No Previous Sync)
+      - name: Init - Full Clone if No Previous Sync (Loooong...)
         if: env.SVN_SYNCED == 'false'
         run: |
           rm -rf .git
