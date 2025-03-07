@@ -152,7 +152,11 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
           # Ensure correct Git remote is set
-          git remote set-url origin "https://github.com/${{ github.repository }}.git"
+          if ! git remote | grep -q "origin"; then
+            git remote add origin "https://github.com/${{ github.repository }}.git"
+          else
+            git remote set-url origin "https://github.com/${{ github.repository }}.git"
+          fi
 
           # Push only if there are changes
           if [ -n "$(git status --porcelain)" ]; then
