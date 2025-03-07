@@ -17,17 +17,17 @@ jobs:
       image: debian:bullseye
       options: --workdir /__w/${{ github.event.repository.name }}/${{ github.event.repository.name }}
     steps:
-      - name: Checkout GitHub Repository
+      - name: Boot - Checkout GitHub Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Install Dependencies
+      - name: Boot - Install Dependencies
         run: |
           apt-get update
           apt-get install -y git git-svn subversion jq curl
 
-      - name: Check if GitHub Repository Has Been Synced from SVN Before
+      - name: Boot - Check For Previous Sync
         id: check_repo
         run: |
           if git branch -r | grep -q "origin/trunk"; then
@@ -36,18 +36,18 @@ jobs:
             echo "SVN_SYNCED=false" >> $GITHUB_ENV
           fi
 
-      - name: Get Latest SVN Revision
+      - name: Boot - Get Latest SVN Revision
         run: |
           LATEST_SVN_REV=$(svn info --show-item last-changed-revision $SVN_REPO_URL)
           echo "LATEST_SVN_REV=$LATEST_SVN_REV" >> $GITHUB_ENV
 
-      - name: Get Last Synced SVN Revision
+      - name: Boot - Get Last Synced SVN Revision
         if: env.SVN_SYNCED == 'true'
         run: |
           LAST_SYNCED_REV=$(git log --grep="git-svn-id" -1 --format="%b" | sed -n 's/.*@\([0-9]\+\) .*/\1/p' || echo "")
           echo "LAST_SYNCED_REV=$LAST_SYNCED_REV" >> $GITHUB_ENV
 
-      - name: Determine SVN Fetch Range
+      - name: Boot - Determine SVN Fetch Range
         if: env.SVN_SYNCED == 'true'
         run: |
           if [[ -z "$LAST_SYNCED_REV" ]]; then
@@ -58,7 +58,7 @@ jobs:
           fi
           echo "LAST_SYNCED_REV=$LAST_SYNCED_REV" >> $GITHUB_ENV
 
-      - name: Check if SVN Has New Commits
+      - name: Boot - Check for New SVN Commits
         if: env.SVN_SYNCED == 'true'
         run: |
           if [[ "$LATEST_SVN_REV" -eq "$LAST_SYNCED_REV" ]]; then
@@ -66,81 +66,43 @@ jobs:
             exit 0
           fi
 
-      - name: Create Dynamic fetch-authors.sh Script
-        run: |
-          cat << 'EOF' > fetch-authors.sh
-          #!/bin/bash
-          AUTHOR=$1
-          WP_USERNAME=$(curl -s "https://profiles.wordpress.org/wp-json/wporg-github/v1/lookup/$AUTHOR" | jq -r '.slug' || echo "$AUTHOR")
-          echo "$AUTHOR = $WP_USERNAME <wporg-$WP_USERNAME@users.noreply.github.com>"
-          EOF
-          chmod +x fetch-authors.sh
-
-      - name: Initial - Full Clone (if No Previous Sync)
-        if: env.SVN_SYNCED == 'false'
-        run: |
-          rm -rf .git
-          git svn clone --stdlayout --no-minimize-url --no-metadata --authors-prog=./fetch-authors.sh $SVN_REPO_URL .
-
-      - name: Initial - Commit to GitHub
-        if: env.SVN_SYNCED == 'false'
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-
-          # Ensure there are changes to commit
-          if [ -n "$(git status --porcelain)" ]; then
-            git add .
-            git commit -m "Initial SVN Import"
-            echo "Initial commit created."
-          else
-            echo "No changes to commit."
-          fi
-
-      - name: Initial - Push to GitHub
-        if: env.SVN_SYNCED == 'false'
-        run: |
-          git remote add origin $GITHUB_REPO_URL || true
-          git push --all origin --force
-          git push --tags origin --force
-
-      - name: Sync - Fetch New SVN Commits
-        if: env.SVN_SYNCED == 'true'
-        run: |
-          git svn fetch --all
-          git svn rebase
-
-      - name: Sync - Get New Commit Hashes
-        if: env.SVN_SYNCED == 'true'
-        run: |
-          LAST_SYNCED_COMMIT=$(git svn find-rev r$LAST_SYNCED_REV || git rev-list --max-parents=0 HEAD)
-          NEW_COMMITS=$(git log --format="%H" $LAST_SYNCED_COMMIT..HEAD)
-          echo "$NEW_COMMITS" > new_commits.txt
-
-      - name: Sync - Ensure authors.json Exists
+      - name: Boot - Ensure authors.json Exists
         run: |
           if [ ! -f authors.json ]; then
             echo "{}" > authors.json
             echo "Created empty authors.json file."
           fi
 
-      - name: Sync - Restore Cached Username Mapping
-        uses: actions/cache@v3
-        with:
-          path: authors.json
-          key: wp-authors-cache
-
-      - name: Sync - Map WordPress.org Usernames to GitHub (Only New Commits)
-        if: env.SVN_SYNCED == 'true'
+      - name: Boot - Create Username Map Script
         run: |
-          NEW_COMMITS=$(cat new_commits.txt)
-          AUTHORS=$(git log --format='%aN' -- $NEW_COMMITS | sort -u)
+          cat << 'EOF' > fetch-authors.sh
+          #!/bin/bash
+          AUTHOR=$1
+          WP_USERNAME=$(curl -s "https://profiles.wordpress.org/wp-json/wporg-github/v1/lookup/$AUTHOR" | jq -r '.slug' || echo "$AUTHOR")
+          echo "$AUTHOR = $WP_USERNAME <$WP_USERNAME@git.wordpress.org>"
+          EOF
+          chmod +x fetch-authors.sh
+
+      - name: Boot - Create Author Caching Script
+        run: |
+          cat << 'EOF' > cache-authors.sh
+          #!/bin/bash
+          set -e
+
+          AUTHORS_FILE="authors.json"
+
+          # Extract authors from Git history if an argument is provided (otherwise, get all)
+          if [ -n "$1" ]; then
+            AUTHORS=$(git log --format='%aN' -- $1 | sort -u)
+          else
+            AUTHORS=$(git log --format='%aN' | sort -u)
+          fi
 
           # Store known usernames in memory to avoid duplicate API calls
           declare -A USERNAME_CACHE
 
           for AUTHOR in $AUTHORS; do
-            if jq -e ".\"$AUTHOR\"" authors.json >/dev/null; then
+            if jq -e ".\"$AUTHOR\"" "$AUTHORS_FILE" >/dev/null; then
               continue
             fi
 
@@ -161,9 +123,82 @@ jobs:
             fi
 
             if [[ "$WP_USERNAME" != "null" ]]; then
-              jq --arg author "$AUTHOR" --arg wp_user "$WP_USERNAME" '. + {($author): $wp_user}' authors.json > authors_tmp.json && mv authors_tmp.json authors.json
+              jq --arg author "$AUTHOR" --arg wp_user "$WP_USERNAME" '. + {($author): $wp_user}' "$AUTHORS_FILE" > authors_tmp.json && mv authors_tmp.json "$AUTHORS_FILE"
             fi
           done
+
+          echo "Updated author cache in $AUTHORS_FILE"
+          EOF
+
+          chmod +x cache-authors.sh
+
+      - name: Init - Full Clone (if No Previous Sync)
+        if: env.SVN_SYNCED == 'false'
+        run: |
+          rm -rf .git
+          git svn clone --stdlayout --no-minimize-url --no-metadata --authors-prog=./fetch-authors.sh $SVN_REPO_URL .
+
+      - name: Init - Mark Repository as Safe
+        run: |
+          git config --global --add safe.directory /__w/${{ github.event.repository.name }}/${{ github.event.repository.name }}
+
+      - name: Init - Commit to GitHub
+        if: env.SVN_SYNCED == 'false'
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+          # Ensure there are changes to commit
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .
+            git commit -m "Initial SVN Import"
+            echo "Initial commit created."
+          else
+            echo "No changes to commit."
+          fi
+
+      - name: Init - Push to GitHub
+        if: env.SVN_SYNCED == 'false'
+        run: |
+          git remote add origin $GITHUB_REPO_URL || true
+          git push --all origin --force
+          git push --tags origin --force
+
+      - name: Init - Push to GitHub
+        if: env.SVN_SYNCED == 'false'
+        run: |
+          git remote add origin $GITHUB_REPO_URL || true
+          git push --all origin --force
+          git push --tags origin --force
+
+      - name: Init - Cache Authors from Initial Sync
+        if: env.SVN_SYNCED == 'false'
+        run: |
+          ./cache-authors.sh
+
+      - name: Sync - Fetch New SVN Commits
+        if: env.SVN_SYNCED == 'true'
+        run: |
+          git svn fetch --all
+          git svn rebase
+
+      - name: Sync - Get New Commit Hashes
+        if: env.SVN_SYNCED == 'true'
+        run: |
+          LAST_SYNCED_COMMIT=$(git svn find-rev r$LAST_SYNCED_REV || git rev-list --max-parents=0 HEAD)
+          NEW_COMMITS=$(git log --format="%H" $LAST_SYNCED_COMMIT..HEAD)
+          echo "$NEW_COMMITS" > new_commits.txt
+
+      - name: Sync - Restore Cached Username Mapping
+        uses: actions/cache@v3
+        with:
+          path: authors.json
+          key: wp-authors-cache
+
+      - name: Sync - Map Worg Usernames to GitHub (New Commits Only)
+        if: env.SVN_SYNCED == 'true'
+        run: |
+          ./cache-authors.sh "$(cat new_commits.txt)"
 
       - name: Sync - Save Cached Username Mapping
         uses: actions/cache@v3
