@@ -13,22 +13,18 @@ env:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    container:
+      image: debian:bullseye
     steps:
       - name: Checkout GitHub Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Install Dependencies (Including git-svn)
+      - name: Install Dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y git subversion jq curl perl \
-                                  libsvn-perl libterm-readkey-perl \
-                                  libwww-perl liberror-perl \
-                                  libapr1 libaprutil1 libapr1-dev libaprutil1-dev \
-                                  make cpanminus
-          sudo cpanm --notest SVN::Core
-          sudo cpanm --notest Git::SVN
+          apt-get update
+          apt-get install -y git git-svn subversion jq curl
 
           # Ensure git-svn is in the system path
           GIT_SVN_PATH=$(find / -name git-svn -type f 2>/dev/null | head -n 1)
