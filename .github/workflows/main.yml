@@ -30,8 +30,13 @@ jobs:
       - name: Check if GitHub Repository Has Been Synced from SVN Before
         id: check_repo
         run: |
-          if git branch -r | grep -q "origin/trunk"; then
-            echo "SVN_SYNCED=true" >> $GITHUB_ENV
+          if [ -d "git-svn/.git" ]; then
+            cd git-svn || exit 1
+            if git branch -r | grep -q "origin/trunk"; then
+              echo "SVN_SYNCED=true" >> $GITHUB_ENV
+            else
+              echo "SVN_SYNCED=false" >> $GITHUB_ENV
+            fi
           else
             echo "SVN_SYNCED=false" >> $GITHUB_ENV
           fi
