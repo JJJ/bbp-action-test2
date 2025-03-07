@@ -71,11 +71,21 @@ jobs:
             exit 0
           fi
 
+      - name: Create Dynamic fetch-authors.sh Script
+        run: |
+          cat << 'EOF' > fetch-authors.sh
+          #!/bin/bash
+          AUTHOR=$1
+          WP_USERNAME=$(curl -s "https://profiles.wordpress.org/wp-json/wporg-github/v1/lookup/$AUTHOR" | jq -r '.slug' || echo "$AUTHOR")
+          echo "$AUTHOR = $WP_USERNAME <wporg-$WP_USERNAME@users.noreply.github.com>"
+          EOF
+          chmod +x fetch-authors.sh
+
       - name: Initialize Git-SVN (Full Clone if No Previous Sync)
         if: env.SVN_SYNCED == 'false'
         run: |
           rm -rf git-svn
-          git svn clone --stdlayout --no-minimize-url --no-metadata $SVN_REPO_URL git-svn
+          git svn clone --stdlayout --no-minimize-url --no-metadata --authors-prog=./fetch-authors.sh $SVN_REPO_URL git-svn
 
       - name: Fetch Only New SVN Commits
         if: env.SVN_SYNCED == 'true'
