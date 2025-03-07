@@ -87,6 +87,59 @@ jobs:
           rm -rf git-svn
           git svn clone --stdlayout --no-minimize-url --no-metadata --authors-prog=./fetch-authors.sh $SVN_REPO_URL git-svn
 
+      - name: Commit Initial Sync to GitHub
+        if: env.SVN_SYNCED == 'false'
+        run: |
+          cd git-svn
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+          # Ensure there are changes to commit
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .
+            git commit -m "Initial SVN Import"
+            echo "Initial commit created."
+          else
+            echo "No changes to commit."
+          fi
+
+      - name: Push Initial Sync to GitHub
+        if: env.SVN_SYNCED == 'false'
+        run: |
+          cd git-svn
+          git remote add origin $GITHUB_REPO_URL || true
+          git push --all origin --force
+          git push --tags origin --force
+
+      - name: Ensure authors.json Exists
+        run: |
+          if [ ! -f authors.json ]; then
+            echo "{}" > authors.json
+            echo "Created empty authors.json file."
+          fi
+
+      - name: Extract Authors From Initial Sync
+        if: env.SVN_SYNCED == 'false'
+        run: |
+          cd git-svn
+
+          # Extract all commit authors
+          AUTHORS=$(git log --format='%aN' | sort -u)
+
+          for AUTHOR in $AUTHORS; do
+            if jq -e ".\"$AUTHOR\"" ../authors.json >/dev/null; then
+              continue
+            fi
+
+            WP_USERNAME=$(curl -s "https://profiles.wordpress.org/wp-json/wporg-github/v1/lookup/$AUTHOR" | jq -r '.slug' || echo "$AUTHOR")
+
+            if [[ "$WP_USERNAME" != "null" ]]; then
+              jq --arg author "$AUTHOR" --arg wp_user "$WP_USERNAME" '. + {($author): $wp_user}' ../authors.json > ../authors_tmp.json && mv ../authors_tmp.json ../authors.json
+            fi
+          done
+
+          echo "Authors have been extracted and cached."
+
       - name: Fetch Only New SVN Commits
         if: env.SVN_SYNCED == 'true'
         run: |
@@ -101,13 +154,6 @@ jobs:
           LAST_SYNCED_COMMIT=$(git svn find-rev r$LAST_SYNCED_REV || git rev-list --max-parents=0 HEAD)
           NEW_COMMITS=$(git log --format="%H" $LAST_SYNCED_COMMIT..HEAD)
           echo "$NEW_COMMITS" > ../new_commits.txt
-
-      - name: Ensure authors.json Exists Before Restoring Cache
-        run: |
-          if [ ! -f authors.json ]; then
-            echo "{}" > authors.json
-            echo "Created empty authors.json file."
-          fi
 
       - name: Restore Cached Username Mapping
         id: cache-authors
