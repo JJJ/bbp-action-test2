@@ -19,15 +19,13 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Install Compatible Git and Git-SVN
+      - name: Install Dependencies (Including Git-SVN)
         run: |
           sudo apt-get update
-          sudo apt-get install -y software-properties-common
-          sudo add-apt-repository -y ppa:git-core/ppa
-          sudo apt-get update
-          sudo apt-get install -y git=1:2.42.0-1ubuntu1
-          sudo apt-mark hold git
-          sudo apt-get install -y git-svn subversion jq curl
+          sudo apt-get install -y git subversion jq curl perl
+          sudo apt-get install -y libwww-perl libterm-readkey-perl liberror-perl
+          sudo cpan -i SVN::Core
+          sudo cpan -i Git::SVN
 
       - name: Check if GitHub Repository Has Been Synced from SVN Before
         id: check_repo
