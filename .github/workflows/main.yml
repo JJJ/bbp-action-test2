@@ -22,7 +22,7 @@ jobs:
       - name: Install Dependencies (Including Git-SVN and APR)
         run: |
           sudo apt-get update
-          sudo apt-get install -y git subversion jq curl perl \
+          sudo apt-get install -y git subversion git-svn jq curl perl \
                                   libsvn-perl libapache2-mod-perl2 \
                                   libapr1 libaprutil1 libapr1-dev libaprutil1-dev
 
