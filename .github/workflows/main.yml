@@ -19,13 +19,12 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Install Dependencies (Including Git-SVN)
+      - name: Install Dependencies (Including Git-SVN and APR)
         run: |
           sudo apt-get update
-          sudo apt-get install -y git subversion jq curl perl
-          sudo apt-get install -y libwww-perl libterm-readkey-perl liberror-perl
-          sudo cpan -i SVN::Core
-          sudo cpan -i Git::SVN
+          sudo apt-get install -y git subversion jq curl perl \
+                                  libsvn-perl libapache2-mod-perl2 \
+                                  libapr1 libaprutil1 libapr1-dev libaprutil1-dev
 
       - name: Check if GitHub Repository Has Been Synced from SVN Before
         id: check_repo
