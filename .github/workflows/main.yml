@@ -92,6 +92,13 @@ jobs:
           NEW_COMMITS=$(git log --format="%H" $LAST_SYNCED_COMMIT..HEAD)
           echo "$NEW_COMMITS" > ../new_commits.txt
 
+      - name: Ensure authors.json Exists Before Restoring Cache
+        run: |
+          if [ ! -f authors.json ]; then
+            echo "{}" > authors.json
+            echo "Created empty authors.json file."
+          fi
+
       - name: Restore Cached Username Mapping
         id: cache-authors
         uses: actions/cache@v3
