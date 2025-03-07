@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: debian:bullseye
+      options: --workdir /__w/${{ github.event.repository.name }}/${{ github.event.repository.name }}
     steps:
       - name: Checkout GitHub Repository
         uses: actions/checkout@v4
