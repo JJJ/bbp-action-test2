@@ -1,0 +1,258 @@
+name: Sync bbPress SVN to GitHub
+
+on:
+  schedule:
+    - cron: '*/30 * * * *' # Runs every 30 minutes
+  workflow_dispatch: # Allows manual trigger
+
+env:
+  GITHUB_USERNAME: "JJJ"
+  SVN_REPO_URL: "https://bbpress.svn.wordpress.org"
+  GITHUB_REPO_URL: "https://github.com/${{ github.repository }}.git"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:bullseye
+      options: --workdir /__w/${{ github.event.repository.name }}/${{ github.event.repository.name }}
+    steps:
+      - name: Boot - Checkout GitHub Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Ensures a full clone (not a shallow one)
+          persist-credentials: true
+          clean: false  # Prevents deleting the `.git` directory
+          submodules: false
+          lfs: false
+
+      - name: Boot - Install Dependencies
+        run: |
+          apt-get update
+          apt-get install -y git git-svn subversion jq curl
+
+      - name: Boot - Check For Previous Sync
+        id: check_repo
+        run: |
+          if git branch -r | grep -q "origin/trunk"; then
+            echo "SVN_SYNCED=true" >> $GITHUB_ENV
+          else
+            echo "SVN_SYNCED=false" >> $GITHUB_ENV
+          fi
+
+      - name: Boot - Get Latest SVN Revision
+        run: |
+          LATEST_SVN_REV=$(svn info --show-item last-changed-revision $SVN_REPO_URL)
+          echo "LATEST_SVN_REV=$LATEST_SVN_REV" >> $GITHUB_ENV
+
+      - name: Boot - Get Last Synced SVN Revision
+        if: env.SVN_SYNCED == 'true'
+        run: |
+          LAST_SYNCED_REV=$(git log --grep="git-svn-id" -1 --format="%b" | sed -n 's/.*@\([0-9]\+\) .*/\1/p' || echo "")
+          echo "LAST_SYNCED_REV=$LAST_SYNCED_REV" >> $GITHUB_ENV
+
+      - name: Boot - Determine SVN Fetch Range
+        if: env.SVN_SYNCED == 'true'
+        run: |
+          if [[ -z "$LAST_SYNCED_REV" ]]; then
+            LAST_SYNCED_REV=$((LATEST_SVN_REV - 1000))
+          fi
+          if [[ "$LAST_SYNCED_REV" -lt "1" ]]; then
+            LAST_SYNCED_REV=1
+          fi
+          echo "LAST_SYNCED_REV=$LAST_SYNCED_REV" >> $GITHUB_ENV
+
+      - name: Boot - Might Exit Here If No New SVN Commits
+        if: env.SVN_SYNCED == 'true'
+        run: |
+          if [[ "$LATEST_SVN_REV" -eq "$LAST_SYNCED_REV" ]]; then
+            echo "No new commits in SVN. Exiting..."
+            exit 0
+          fi
+
+      - name: Files - Ensure authors.json Exists
+        run: |
+          if [ ! -f authors.json ]; then
+            echo "{}" > authors.json
+            echo "Created empty authors.json file."
+          fi
+
+      - name: Files - Create Username Map Script
+        run: |
+          cat << 'EOF' > fetch-authors.sh
+          #!/bin/bash
+          AUTHOR=$1
+          WP_USERNAME=$(curl -s "https://profiles.wordpress.org/wp-json/wporg-github/v1/lookup/$AUTHOR" | jq -r '.slug' || echo "$AUTHOR")
+          echo "$AUTHOR = $WP_USERNAME <$WP_USERNAME@git.wordpress.org>"
+          EOF
+          chmod +x fetch-authors.sh
+
+      - name: Files - Create Author Caching Script
+        run: |
+          cat << 'EOF' > cache-authors.sh
+          #!/bin/bash
+          set -e
+
+          AUTHORS_FILE="authors.json"
+
+          # Extract authors from Git history if an argument is provided (otherwise, get all)
+          if [ -n "$1" ]; then
+            AUTHORS=$(git log --format='%aN' -- $1 | sort -u)
+          else
+            AUTHORS=$(git log --format='%aN' | sort -u)
+          fi
+
+          # Store known usernames in memory to avoid duplicate API calls
+          declare -A USERNAME_CACHE
+
+          for AUTHOR in $AUTHORS; do
+            if jq -e ".\"$AUTHOR\"" "$AUTHORS_FILE" >/dev/null; then
+              continue
+            fi
+
+            # Check cache first
+            if [[ -n "${USERNAME_CACHE[$AUTHOR]}" ]]; then
+              WP_USERNAME=${USERNAME_CACHE[$AUTHOR]}
+            else
+              # Fetch from API with retries
+              WP_USERNAME=""
+              for i in {1..3}; do
+                WP_USERNAME=$(curl -s "https://profiles.wordpress.org/wp-json/wporg-github/v1/lookup/$AUTHOR" | jq -r '.slug' || echo "null")
+                if [[ "$WP_USERNAME" != "null" ]]; then
+                  USERNAME_CACHE[$AUTHOR]=$WP_USERNAME
+                  break
+                fi
+                sleep $((2 ** i))
+              done
+            fi
+
+            if [[ "$WP_USERNAME" != "null" ]]; then
+              jq --arg author "$AUTHOR" --arg wp_user "$WP_USERNAME" '. + {($author): $wp_user}' "$AUTHORS_FILE" > authors_tmp.json && mv authors_tmp.json "$AUTHORS_FILE"
+            fi
+          done
+
+          echo "Updated author cache in $AUTHORS_FILE"
+          EOF
+
+          chmod +x cache-authors.sh
+
+      - name: Files - Create Git Push Script
+        run: |
+          cat << 'EOF' > git-push.sh
+          #!/bin/bash
+          set -e
+
+          # Ensure we're in the correct working directory
+          cd /__w/${{ github.event.repository.name }}/${{ github.event.repository.name }} || exit 1
+
+          # Configure Git authentication
+          git config --global credential.helper store
+          echo "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com" > ~/.git-credentials
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Ensure correct Git remote is set
+          if ! git remote | grep -q "origin"; then
+            git remote add origin "https://github.com/${{ github.repository }}.git"
+          else
+            git remote set-url origin "https://github.com/${{ github.repository }}.git"
+          fi
+
+          # Push only if there are changes
+          if [ -n "$(git status --porcelain)" ]; then
+            git push --all origin --force
+            git push --tags origin --force
+          else
+            echo "No new commits to push."
+          fi
+          EOF
+
+          chmod +x git-push.sh
+
+      - name: Init - Full Clone if No Previous Sync (Loooong...)
+        if: env.SVN_SYNCED == 'false'
+        run: |
+          rm -rf .git
+          git svn clone --stdlayout --no-minimize-url --no-metadata --authors-prog=./fetch-authors.sh $SVN_REPO_URL .
+
+      - name: Init - Mark Repository as Safe
+        run: |
+          git config --global --add safe.directory /__w/${{ github.event.repository.name }}/${{ github.event.repository.name }}
+
+      - name: Init - Commit to GitHub
+        if: env.SVN_SYNCED == 'false'
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+          # Ensure there are changes to commit
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .
+            git commit -m "Initial SVN Import"
+            echo "Initial commit created."
+          else
+            echo "No changes to commit."
+          fi
+
+      - name: Init - Cache Authors from Initial Sync
+        if: env.SVN_SYNCED == 'false'
+        run: |
+          ./cache-authors.sh
+
+      - name: Init - Push to GitHub
+        if: env.SVN_SYNCED == 'false'
+        run: ./git-push.sh
+
+      - name: Sync - Fetch New SVN Commits
+        if: env.SVN_SYNCED == 'true'
+        run: |
+          git svn fetch --all
+          git svn rebase
+
+      - name: Sync - Get New Commit Hashes
+        if: env.SVN_SYNCED == 'true'
+        run: |
+          LAST_SYNCED_COMMIT=$(git svn find-rev r$LAST_SYNCED_REV || git rev-list --max-parents=0 HEAD)
+          NEW_COMMITS=$(git log --format="%H" $LAST_SYNCED_COMMIT..HEAD)
+          echo "$NEW_COMMITS" > new_commits.txt
+
+      - name: Sync - Restore Cached Username Mapping
+        uses: actions/cache@v3
+        with:
+          path: authors.json
+          key: wp-authors-cache
+
+      - name: Sync - Map Worg Usernames to GitHub (New Commits Only)
+        if: env.SVN_SYNCED == 'true'
+        run: |
+          ./cache-authors.sh "$(cat new_commits.txt)"
+
+      - name: Sync - Save Cached Username Mapping
+        uses: actions/cache@v3
+        with:
+          path: authors.json
+          key: wp-authors-cache
+
+      - name: Sync - SVN Branches to Git
+        if: env.SVN_SYNCED == 'true'
+        run: |
+          for branch in $(git branch -r | grep "origin/" | grep -v "trunk" | sed 's/origin\///'); do
+            git branch --track "$branch" "origin/$branch" || true
+            git checkout "$branch" && git svn rebase || true
+          done
+
+      - name: Sync - SVN Tags to Git
+        if: env.SVN_SYNCED == 'true'
+        run: |
+          for tag in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin/tags); do
+            git tag "${tag#origin/tags/}" "refs/remotes/$tag"
+          done
+
+      - name: Clean - Optimize Git Repository
+        run: |
+          git gc --aggressive --prune=now
+          git repack -A -d --depth=250 --window=250
+
+      - name: Sync - Push to GitHub
+        if: env.SVN_SYNCED == 'true'
+        run: ./git-push.sh
