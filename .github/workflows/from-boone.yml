@@ -6,6 +6,7 @@ on:
   workflow_dispatch:        # Allows manual trigger
 
 env:
+  GIT_DISCOVERY_ACROSS_FILESYSTEM: 1
   SVN_REPO_URL: "https://bbpress.svn.wordpress.org"
   GITHUB_REPO_URL: "https://github.com/${{ github.repository }}.git"
 
