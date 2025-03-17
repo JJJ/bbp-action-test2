@@ -19,11 +19,13 @@ jobs:
       - name: Checkout GitHub Repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0              # Full clone
+          ref: ${{ github.ref }}
+          fetch-depth: 0
           persist-credentials: true
-          clean: false                # Do not delete .git
+          clean: false
           submodules: false
           lfs: false
+          sparse-checkout: false
 
       - name: Install Dependencies
         run: |
