@@ -19,13 +19,11 @@ jobs:
       - name: Checkout GitHub Repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref }}
-          fetch-depth: 0
+          fetch-depth: 0              # Full clone
           persist-credentials: true
-          clean: false
+          clean: false                # Do not delete .git
           submodules: false
           lfs: false
-          sparse-checkout: false
 
       - name: Install Dependencies
         run: |
@@ -41,6 +39,16 @@ jobs:
             fi
           fi
           touch .sync-running
+
+      - name: Ensure Git Repository Exists
+        run: |
+          if [ ! -d ".git" ]; then
+            echo "No .git directory found. Initializing a new Git repository."
+            git init
+            git remote add origin "https://github.com/${{ github.repository }}.git"
+          else
+            echo ".git directory found."
+          fi
 
       - name: Switch to Master Branch
         run: |
